@@ -3,7 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Viewer with Text Selection</title>
+    <title>장가계 장룡항공(룽에어) 요금표</title>
+    
+    <!-- 기본 메타 태그 -->
+    <meta name="description" content="장가계 장룡항공(룽에어) 요금표 - 출발 일정 및 요금 안내">
+    
+    <!-- 오픈그래프 메타 태그 -->
+    <meta property="og:title" content="장가계 장룡항공(룽에어) 요금표">
+    <meta property="og:description" content="장가계 출발 일정 및 요금 안내">
+    <meta property="og:type" content="article">
+    <meta property="og:image" content="첫 페이지 이미지 URL"> <!-- PDF 첫 페이지를 이미지로 변환하여 사용 -->
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
@@ -18,6 +28,7 @@
             padding: 0;
             min-height: 100vh;
             overflow-y: auto;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
         #outer-container {
@@ -25,7 +36,6 @@
             display: flex;
             justify-content: center;
             background: #ffffff;
-            padding: 20px 0;
         }
 
         #pdf-container {
@@ -39,35 +49,13 @@
             margin: 0;
             position: relative;
             background: #ffffff;
+            line-height: 0;
         }
 
         canvas {
             width: 100% !important;
             height: auto !important;
             display: block;
-        }
-
-        .textLayer {
-            position: absolute;
-            left: 0;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            overflow: hidden;
-            opacity: 0.2;
-            line-height: 1.0;
-        }
-
-        .textLayer > span {
-            color: transparent;
-            position: absolute;
-            white-space: pre;
-            cursor: text;
-            transform-origin: 0% 0%;
-        }
-
-        .textLayer ::selection {
-            background: rgba(0, 0, 255, 0.2);
         }
 
         ::-webkit-scrollbar {
@@ -86,10 +74,10 @@
             transform: translate(-50%, -50%);
             color: #666;
             font-size: 14px;
-            z-index: 1000;
             background: rgba(255, 255, 255, 0.9);
             padding: 20px;
             border-radius: 8px;
+            z-index: 1000;
         }
 
         @media (max-width: 880px) {
@@ -112,6 +100,25 @@
         const loadingDiv = document.querySelector('.loading');
         let currentScale = 1.5;
 
+        async function updateMetadata(pdfDoc) {
+            try {
+                const metadata = await pdfDoc.getMetadata();
+                if (metadata) {
+                    const info = metadata.info;
+                    const title = info.Title || '장가계 장룡항공(룽에어) 요금표';
+                    const description = info.Subject || '장가계 출발 일정 및 요금 안내';
+                    
+                    // 메타 정보 업데이트
+                    document.title = title;
+                    document.querySelector('meta[name="description"]').setAttribute('content', description);
+                    document.querySelector('meta[property="og:title"]').setAttribute('content', title);
+                    document.querySelector('meta[property="og:description"]').setAttribute('content', description);
+                }
+            } catch (error) {
+                console.log('메타데이터 추출 실패:', error);
+            }
+        }
+
         async function renderPage(pdfDoc, pageNum) {
             const page = await pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: currentScale });
@@ -119,28 +126,18 @@
             const pageDiv = document.createElement('div');
             pageDiv.className = 'pdf-page';
             
-            // Canvas 설정
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
-            const outputScale = window.devicePixelRatio || 1;
 
+            const outputScale = window.devicePixelRatio || 1;
             canvas.width = Math.floor(viewport.width * outputScale);
             canvas.height = Math.floor(viewport.height * outputScale);
             canvas.style.width = Math.floor(viewport.width) + "px";
             canvas.style.height = Math.floor(viewport.height) + "px";
 
             pageDiv.appendChild(canvas);
-
-            // 텍스트 레이어 준비
-            const textLayerDiv = document.createElement("div");
-            textLayerDiv.className = "textLayer";
-            textLayerDiv.style.width = Math.floor(viewport.width) + "px";
-            textLayerDiv.style.height = Math.floor(viewport.height) + "px";
-            pageDiv.appendChild(textLayerDiv);
-
             pdfContainer.appendChild(pageDiv);
 
-            // 캔버스에 페이지 렌더링
             const transform = outputScale !== 1 
                 ? [outputScale, 0, 0, outputScale, 0, 0] 
                 : null;
@@ -151,29 +148,21 @@
                 viewport: viewport
             }).promise;
 
-            // 텍스트 콘텐츠 렌더링
-            const textContent = await page.getTextContent();
-            textContent.items.forEach(item => {
-                const tx = viewport.transform;
-                const fontHeight = Math.sqrt((tx[0] * tx[0]) + (tx[1] * tx[1]));
-                const fontSize = Math.floor(fontHeight * item.height);
-                
-                const span = document.createElement('span');
-                span.textContent = item.str;
-                span.style.fontSize = `${fontSize}px`;
-                span.style.position = 'absolute';
-                span.style.left = Math.floor(item.transform[4]) + 'px';
-                span.style.top = Math.floor(viewport.height - item.transform[5] - fontSize) + 'px';
-                span.style.fontFamily = item.fontName || 'sans-serif';
-                textLayerDiv.appendChild(span);
-            });
+            // 첫 페이지를 og:image로 사용
+            if (pageNum === 1) {
+                const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
+                document.querySelector('meta[property="og:image"]').setAttribute('content', imageUrl);
+            }
         }
 
         async function loadPDF() {
             try {
-                const pdfUrl = 'https://raw.githubusercontent.com/born520/pdf/main/장가계_장룡항공(룽에어).pdf';
+                const pdfUrl = '장가계_장룡항공(룽에어).pdf';  // PDF 파일 경로 변경
                 const loadingTask = pdfjsLib.getDocument(pdfUrl);
                 const pdfDoc = await loadingTask.promise;
+                
+                // 메타데이터 업데이트
+                await updateMetadata(pdfDoc);
                 
                 loadingDiv.style.display = 'none';
                 
@@ -187,6 +176,25 @@
         }
 
         loadPDF();
+
+        document.addEventListener('wheel', function(e) {
+            window.scrollBy({
+                top: e.deltaY,
+                behavior: 'auto'
+            });
+        }, { passive: true });
+
+        let touchStartY = 0;
+        document.addEventListener('touchstart', function(e) {
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchmove', function(e) {
+            const touchY = e.touches[0].clientY;
+            const deltaY = touchStartY - touchY;
+            window.scrollBy(0, deltaY);
+            touchStartY = touchY;
+        }, { passive: true });
     </script>
 </body>
 </html>
