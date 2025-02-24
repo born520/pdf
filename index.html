@@ -157,7 +157,7 @@
 
         async function loadPDF() {
             try {
-                const pdfUrl = '장가계_장룡항공(룽에어).pdf';  // PDF 파일 경로 변경
+                const pdfUrl = 'https://raw.githubusercontent.com/born520/pdf/main/장가계_장룡항공(룽에어).pdf';  // PDF 파일 경로 변경
                 const loadingTask = pdfjsLib.getDocument(pdfUrl);
                 const pdfDoc = await loadingTask.promise;
                 
