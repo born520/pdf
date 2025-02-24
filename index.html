@@ -13,58 +13,72 @@
 
         body {
             margin: 0;
-            padding: 0;
+            padding: 20px 0;
             background: #ffffff;
-            overflow: hidden;
-            height: 100vh;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+            background: #ffffff;
         }
 
         .pdf-container {
-            position: absolute;
-            top: 0;
-            left: 0;
             width: 100%;
-            height: 100%;
+            height: 100vh;
             overflow: hidden;
             background: #ffffff;
         }
 
         iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
             width: 100%;
             height: 100%;
             border: none;
-            margin: 0;
-            padding: 0;
         }
 
-        /* 스크롤바 제거 */
+        /* 부드러운 스크롤을 위한 스크롤바 스타일링 */
         ::-webkit-scrollbar {
-            display: none;
+            width: 8px;
         }
 
-        /* Firefox 스크롤바 제거 */
-        html {
-            scrollbar-width: none;
+        ::-webkit-scrollbar-track {
+            background: #ffffff;
         }
 
-        /* Edge 스크롤바 제거 */
-        * {
-            -ms-overflow-style: none;
+        ::-webkit-scrollbar-thumb {
+            background: #e0e0e0;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #d0d0d0;
+        }
+
+        /* 모바일 대응 */
+        @media (max-width: 880px) {
+            .container {
+                width: 95%;
+                margin: 0 auto;
+            }
+            
+            body {
+                padding: 10px 0;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="pdf-container">
-        <iframe 
-            src="https://drive.google.com/file/d/1Pvt8gpg4VOU9E9sr9Iolywn5rmbGtZVe/preview"
-            frameborder="0"
-            allowfullscreen
-            allow="autoplay"
-            style="background: white;">
-        </iframe>
+    <div class="container">
+        <div class="pdf-container">
+            <iframe 
+                src="https://drive.google.com/file/d/1Pvt8gpg4VOU9E9sr9Iolywn5rmbGtZVe/preview"
+                frameborder="0"
+                allowfullscreen
+                allow="autoplay">
+            </iframe>
+        </div>
     </div>
 </body>
 </html>
