@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seamless PDF Viewer</title>
+    <title>Selectable PDF Viewer</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
@@ -40,12 +40,43 @@
             margin: 0;
             background: #ffffff;
             line-height: 0;
+            position: relative;
         }
 
         canvas {
             width: 100% !important;
             height: auto !important;
             display: block;
+        }
+
+        .textLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            color: transparent;
+            transform-origin: 0 0;
+            line-height: 1;
+            user-select: text;
+        }
+
+        .textLayer span {
+            position: absolute;
+            white-space: pre;
+            cursor: text;
+            transform-origin: 0% 0%;
+        }
+
+        .textLayer .highlight {
+            margin: -1px;
+            padding: 1px;
+            background-color: rgba(180, 0, 170, 0.2);
+            border-radius: 4px;
+        }
+
+        .textLayer ::selection {
+            background: rgba(0, 0, 255, 0.2);
         }
 
         /* 스크롤바 숨기기 */
@@ -94,34 +125,60 @@
             const wrapper = document.createElement('div');
             wrapper.className = 'pdf-page';
             
+            // Canvas 렌더링
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
-
-            // 레티나 디스플레이 대응
             const pixelRatio = window.devicePixelRatio || 1;
             canvas.width = viewport.width * pixelRatio;
             canvas.height = viewport.height * pixelRatio;
             context.scale(pixelRatio, pixelRatio);
 
             wrapper.appendChild(canvas);
+
+            // 텍스트 레이어 추가
+            const textLayerDiv = document.createElement('div');
+            textLayerDiv.className = 'textLayer';
+            textLayerDiv.style.width = `${viewport.width}px`;
+            textLayerDiv.style.height = `${viewport.height}px`;
+            wrapper.appendChild(textLayerDiv);
+
             pdfContainer.appendChild(wrapper);
 
+            // 페이지 렌더링
             await page.render({
                 canvasContext: context,
                 viewport: viewport
             }).promise;
+
+            // 텍스트 콘텐츠 렌더링
+            const textContent = await page.getTextContent();
+            textContent.items.forEach(item => {
+                const tx = PDFJS.Util.transform(
+                    PDFJS.Util.transform(viewport.transform, item.transform),
+                    [1, 0, 0, -1, 0, 0]
+                );
+
+                const style = item.style || {};
+                style.left = Math.floor(item.transform[4]) + 'px';
+                style.top = Math.floor(-item.transform[5]) + 'px';
+                style.fontSize = Math.floor(style.fontSize) + 'px';
+                style.fontFamily = style.fontFamily || 'sans-serif';
+
+                const textSpan = document.createElement('span');
+                textSpan.textContent = item.str;
+                Object.assign(textSpan.style, style);
+                textLayerDiv.appendChild(textSpan);
+            });
         }
 
         async function loadPDF() {
             try {
-                // GitHub raw 콘텐츠 URL 사용
                 const pdfUrl = 'https://raw.githubusercontent.com/born520/pdf/main/장가계_장룡항공(룽에어).pdf';
                 const loadingTask = pdfjsLib.getDocument(pdfUrl);
                 const pdfDoc = await loadingTask.promise;
                 
                 loadingDiv.style.display = 'none';
                 
-                // 모든 페이지 렌더링
                 for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
                     await renderPage(pdfDoc, pageNum);
                 }
@@ -130,10 +187,6 @@
                 loadingDiv.textContent = '문서를 불러올 수 없습니다.';
             }
         }
-
-        // 전체 영역 스크롤 가능하도록 설정
-        document.body.style.height = '100%';
-        document.documentElement.style.height = '100%';
 
         loadPDF();
     </script>
