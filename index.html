@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seamless PDF Viewer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -12,108 +11,46 @@
             box-sizing: border-box;
         }
 
-        body {
+        html, body {
+            height: 100%;
+            overflow: auto;
+            background: #ffffff;
+        }
+
+        .pdf-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
             margin: 0;
             padding: 0;
-            background: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #333;
         }
 
-        .content {
-            max-width: 100%;
-            margin: 0 auto;
-            background: #ffffff;
-        }
-
-        #pdf-container {
-            width: 100%;
-            margin: 0 auto;
-        }
-
-        .page {
-            margin: 0 auto;
-            background: #ffffff;
-        }
-
-        canvas {
-            width: 100%;
-            height: auto;
-            display: block;
-            margin: 0 auto;
-        }
-
-        /* 부드러운 로딩 */
-        .page {
-            opacity: 0;
-            transition: opacity 0.3s ease-in;
-        }
-
-        .page.loaded {
-            opacity: 1;
+        /* 스크롤바 숨기기 - 선택사항 */
+        body::-webkit-scrollbar {
+            display: none;
         }
     </style>
 </head>
 <body>
-    <div class="content">
-        <div id="pdf-container"></div>
+    <div class="pdf-container">
+        <iframe 
+            src="https://drive.google.com/file/d/1Pvt8gpg4VOU9E9sr9Iolywn5rmbGtZVe/preview"
+            frameborder="0"
+            allowfullscreen
+            allow="autoplay">
+        </iframe>
     </div>
-
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-        async function loadPDF(url) {
-            const GOOGLE_DRIVE_FILE_ID = '1iHZcJv3IoL3oemkQAMB02VvXsXvpS2B5';
-            const DIRECT_DOWNLOAD_URL = `https://drive.google.com/uc?export=download&id=${1Pvt8gpg4VOU9E9sr9Iolywn5rmbGtZVe}`;
-
-            try {
-                const loadingTask = pdfjsLib.getDocument(DIRECT_DOWNLOAD_URL);
-                const pdf = await loadingTask.promise;
-                const container = document.getElementById('pdf-container');
-                
-                // 모든 페이지 렌더링
-                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                    const page = await pdf.getPage(pageNum);
-                    const viewport = page.getViewport({ scale: 1.5 });
-                    
-                    const pageDiv = document.createElement('div');
-                    pageDiv.className = 'page';
-                    container.appendChild(pageDiv);
-
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-                    pageDiv.appendChild(canvas);
-
-                    await page.render({
-                        canvasContext: context,
-                        viewport: viewport
-                    }).promise;
-
-                    // 페이지 로드 완료 시 페이드인
-                    pageDiv.classList.add('loaded');
-                }
-            } catch (error) {
-                console.error('PDF 로드 오류:', error);
-            }
-        }
-
-        // 스크롤 위치에 따른 페이지 로딩
-        let isLoading = false;
-        window.addEventListener('scroll', () => {
-            if (!isLoading && 
-                (window.innerHeight + window.scrollY) >= document.body.offsetHeight - 1000) {
-                isLoading = true;
-                loadPDF().then(() => {
-                    isLoading = false;
-                });
-            }
-        });
-
-        // 초기 로딩
-        loadPDF();
-    </script>
 </body>
 </html>
