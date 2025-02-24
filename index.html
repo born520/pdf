@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scrollable PDF Viewer</title>
+    <title>PDF Viewer with Text Selection</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
@@ -14,7 +14,6 @@
 
         body {
             background: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             margin: 0;
             padding: 0;
             min-height: 100vh;
@@ -32,16 +31,14 @@
         #pdf-container {
             width: 850px;
             background: #ffffff;
-            position: relative;
         }
 
         .pdf-page {
             width: 100%;
             display: block;
             margin: 0;
-            background: #ffffff;
             position: relative;
-            line-height: 0;
+            background: #ffffff;
         }
 
         canvas {
@@ -57,8 +54,8 @@
             right: 0;
             bottom: 0;
             overflow: hidden;
+            opacity: 0.2;
             line-height: 1.0;
-            color: transparent;
         }
 
         .textLayer > span {
@@ -73,7 +70,6 @@
             background: rgba(0, 0, 255, 0.2);
         }
 
-        /* 스크롤바 숨기기 */
         ::-webkit-scrollbar {
             display: none;
         }
@@ -120,43 +116,54 @@
             const page = await pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: currentScale });
             
-            const wrapper = document.createElement('div');
-            wrapper.className = 'pdf-page';
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'pdf-page';
             
+            // Canvas 설정
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
+            const outputScale = window.devicePixelRatio || 1;
 
-            const pixelRatio = window.devicePixelRatio || 1;
-            canvas.width = viewport.width * pixelRatio;
-            canvas.height = viewport.height * pixelRatio;
-            canvas.style.width = (viewport.width) + 'px';
-            canvas.style.height = (viewport.height) + 'px';
-            context.scale(pixelRatio, pixelRatio);
+            canvas.width = Math.floor(viewport.width * outputScale);
+            canvas.height = Math.floor(viewport.height * outputScale);
+            canvas.style.width = Math.floor(viewport.width) + "px";
+            canvas.style.height = Math.floor(viewport.height) + "px";
 
-            wrapper.appendChild(canvas);
-            pdfContainer.appendChild(wrapper);
+            pageDiv.appendChild(canvas);
+
+            // 텍스트 레이어 준비
+            const textLayerDiv = document.createElement("div");
+            textLayerDiv.className = "textLayer";
+            textLayerDiv.style.width = Math.floor(viewport.width) + "px";
+            textLayerDiv.style.height = Math.floor(viewport.height) + "px";
+            pageDiv.appendChild(textLayerDiv);
+
+            pdfContainer.appendChild(pageDiv);
+
+            // 캔버스에 페이지 렌더링
+            const transform = outputScale !== 1 
+                ? [outputScale, 0, 0, outputScale, 0, 0] 
+                : null;
 
             await page.render({
                 canvasContext: context,
+                transform: transform,
                 viewport: viewport
             }).promise;
 
-            // 텍스트 레이어 추가
-            const textLayerDiv = document.createElement('div');
-            textLayerDiv.className = 'textLayer';
-            textLayerDiv.style.width = `${viewport.width}px`;
-            textLayerDiv.style.height = `${viewport.height}px`;
-            textLayerDiv.style.transform = `scale(${1 / pixelRatio})`;
-            wrapper.appendChild(textLayerDiv);
-
+            // 텍스트 콘텐츠 렌더링
             const textContent = await page.getTextContent();
-            const textItems = textContent.items;
-            textItems.forEach(item => {
+            textContent.items.forEach(item => {
+                const tx = viewport.transform;
+                const fontHeight = Math.sqrt((tx[0] * tx[0]) + (tx[1] * tx[1]));
+                const fontSize = Math.floor(fontHeight * item.height);
+                
                 const span = document.createElement('span');
                 span.textContent = item.str;
-                span.style.left = item.transform[4] + 'px';
-                span.style.top = item.transform[5] + 'px';
-                span.style.fontSize = `${item.transform[0]}px`;
+                span.style.fontSize = `${fontSize}px`;
+                span.style.position = 'absolute';
+                span.style.left = Math.floor(item.transform[4]) + 'px';
+                span.style.top = Math.floor(viewport.height - item.transform[5] - fontSize) + 'px';
                 span.style.fontFamily = item.fontName || 'sans-serif';
                 textLayerDiv.appendChild(span);
             });
