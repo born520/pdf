@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Seamless PDF Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -11,156 +12,130 @@
             box-sizing: border-box;
         }
 
-        html, body {
-            width: 100%;
-            height: 100%;
+        body {
             background: #ffffff;
-            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
         }
 
-        /* 모든 스크롤바 숨기기 */
+        #outer-container {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            background: #ffffff;
+        }
+
+        #pdf-container {
+            width: 850px;
+            background: #ffffff;
+            position: relative;
+        }
+
+        .pdf-page {
+            width: 100%;
+            display: block;
+            margin: 0;
+            background: #ffffff;
+            line-height: 0;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: auto !important;
+            display: block;
+        }
+
+        /* 스크롤바 숨기기 */
         * {
-            scrollbar-width: none !important;
-            -ms-overflow-style: none !important;
-        }
-        
-        *::-webkit-scrollbar {
-            display: none !important;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
 
-        #scroll-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: 9999;
+        ::-webkit-scrollbar {
+            display: none;
         }
 
-        .container {
+        .loading {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 850px;
-            height: 100vh;
-            background: #ffffff;
-        }
-
-        .pdf-container {
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
-
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            background: #ffffff;
-        }
-
-        .overlay-right {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 50px;
-            height: 100%;
-            background: #ffffff;
-            z-index: 1000;
-        }
-
-        .overlay-top {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 40px;
-            background: #ffffff;
-            z-index: 1000;
+            color: #666;
+            font-size: 14px;
         }
 
         @media (max-width: 880px) {
-            .container {
+            #pdf-container {
                 width: 95%;
             }
         }
     </style>
 </head>
 <body>
-    <!-- 전체 영역 스크롤을 위한 투명 컨테이너 -->
-    <div id="scroll-container"></div>
-    
-    <div class="container">
-        <div class="pdf-container">
-            <div class="overlay-right"></div>
-            <div class="overlay-top"></div>
-            <iframe 
-                src="https://drive.google.com/file/d/1Pvt8gpg4VOU9E9sr9Iolywn5rmbGtZVe/preview"
-                frameborder="0"
-                allowfullscreen>
-            </iframe>
-        </div>
+    <div id="outer-container">
+        <div id="pdf-container"></div>
     </div>
+    <div class="loading">문서를 불러오는 중...</div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const iframe = document.querySelector('iframe');
-            let touchStartY = 0;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const pdfContainer = document.getElementById('pdf-container');
+        const loadingDiv = document.querySelector('.loading');
+        let currentScale = 1.5;
+
+        async function renderPage(pdfDoc, pageNum) {
+            const page = await pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale: currentScale });
             
-            // 전체 문서 스크롤 이벤트
-            document.addEventListener('wheel', function(e) {
-                if (iframe.contentWindow) {
-                    iframe.contentWindow.scrollBy(0, e.deltaY);
-                }
-                e.preventDefault();
-            }, { passive: false });
+            const wrapper = document.createElement('div');
+            wrapper.className = 'pdf-page';
+            
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
 
-            // 터치 이벤트
-            document.addEventListener('touchstart', function(e) {
-                touchStartY = e.touches[0].clientY;
-            }, { passive: false });
+            // 레티나 디스플레이 대응
+            const pixelRatio = window.devicePixelRatio || 1;
+            canvas.width = viewport.width * pixelRatio;
+            canvas.height = viewport.height * pixelRatio;
+            context.scale(pixelRatio, pixelRatio);
 
-            document.addEventListener('touchmove', function(e) {
-                const touchY = e.touches[0].clientY;
-                const deltaY = touchStartY - touchY;
+            wrapper.appendChild(canvas);
+            pdfContainer.appendChild(wrapper);
+
+            await page.render({
+                canvasContext: context,
+                viewport: viewport
+            }).promise;
+        }
+
+        async function loadPDF() {
+            try {
+                // GitHub raw 콘텐츠 URL 사용
+                const pdfUrl = 'https://raw.githubusercontent.com/born520/pdf/main/MH%20%EC%9A%94%EA%B8%88%ED%91%9C_0601.pdf';
+                const loadingTask = pdfjsLib.getDocument(pdfUrl);
+                const pdfDoc = await loadingTask.promise;
                 
-                if (iframe.contentWindow) {
-                    iframe.contentWindow.scrollBy(0, deltaY);
-                }
+                loadingDiv.style.display = 'none';
                 
-                touchStartY = touchY;
-                e.preventDefault();
-            }, { passive: false });
-
-            // iframe 로드 완료 후 스타일 수정
-            iframe.onload = function() {
-                try {
-                    const iframeDoc = iframe.contentWindow.document;
-                    const style = iframeDoc.createElement('style');
-                    style.textContent = `
-                        * {
-                            scrollbar-width: none !important;
-                            -ms-overflow-style: none !important;
-                        }
-                        ::-webkit-scrollbar {
-                            display: none !important;
-                        }
-                        body {
-                            background: #ffffff !important;
-                        }
-                        .ndfHFb-c4YZDc-GSQQnc-LgbsSe,
-                        .ndfHFb-c4YZDc-to915-LgbsSe,
-                        .ndfHFb-c4YZDc-vyDMJf-aZ2wEe {
-                            display: none !important;
-                        }
-                    `;
-                    iframeDoc.head.appendChild(style);
-                } catch (e) {
-                    console.log('iframe 스타일 수정 실패');
+                // 모든 페이지 렌더링
+                for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                    await renderPage(pdfDoc, pageNum);
                 }
-            };
-        });
+            } catch (error) {
+                console.error('PDF 로딩 에러:', error);
+                loadingDiv.textContent = '문서를 불러올 수 없습니다.';
+            }
+        }
+
+        // 전체 영역 스크롤 가능하도록 설정
+        document.body.style.height = '100%';
+        document.documentElement.style.height = '100%';
+
+        loadPDF();
     </script>
 </body>
 </html>
