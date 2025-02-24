@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Selectable PDF Viewer</title>
+    <title>Scrollable PDF Viewer</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
@@ -15,17 +15,18 @@
         body {
             background: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            min-height: 100vh;
             margin: 0;
             padding: 0;
+            min-height: 100vh;
+            overflow-y: auto;
         }
 
         #outer-container {
             width: 100%;
-            min-height: 100vh;
             display: flex;
             justify-content: center;
             background: #ffffff;
+            padding: 20px 0;
         }
 
         #pdf-container {
@@ -39,8 +40,8 @@
             display: block;
             margin: 0;
             background: #ffffff;
-            line-height: 0;
             position: relative;
+            line-height: 0;
         }
 
         canvas {
@@ -51,28 +52,21 @@
 
         .textLayer {
             position: absolute;
-            top: 0;
             left: 0;
+            top: 0;
             right: 0;
             bottom: 0;
+            overflow: hidden;
+            line-height: 1.0;
             color: transparent;
-            transform-origin: 0 0;
-            line-height: 1;
-            user-select: text;
         }
 
-        .textLayer span {
+        .textLayer > span {
+            color: transparent;
             position: absolute;
             white-space: pre;
             cursor: text;
             transform-origin: 0% 0%;
-        }
-
-        .textLayer .highlight {
-            margin: -1px;
-            padding: 1px;
-            background-color: rgba(180, 0, 170, 0.2);
-            border-radius: 4px;
         }
 
         .textLayer ::selection {
@@ -80,13 +74,13 @@
         }
 
         /* 스크롤바 숨기기 */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
         * {
             scrollbar-width: none;
             -ms-overflow-style: none;
-        }
-
-        ::-webkit-scrollbar {
-            display: none;
         }
 
         .loading {
@@ -96,6 +90,10 @@
             transform: translate(-50%, -50%);
             color: #666;
             font-size: 14px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
         }
 
         @media (max-width: 880px) {
@@ -125,49 +123,42 @@
             const wrapper = document.createElement('div');
             wrapper.className = 'pdf-page';
             
-            // Canvas 렌더링
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
+
             const pixelRatio = window.devicePixelRatio || 1;
             canvas.width = viewport.width * pixelRatio;
             canvas.height = viewport.height * pixelRatio;
+            canvas.style.width = (viewport.width) + 'px';
+            canvas.style.height = (viewport.height) + 'px';
             context.scale(pixelRatio, pixelRatio);
 
             wrapper.appendChild(canvas);
+            pdfContainer.appendChild(wrapper);
+
+            await page.render({
+                canvasContext: context,
+                viewport: viewport
+            }).promise;
 
             // 텍스트 레이어 추가
             const textLayerDiv = document.createElement('div');
             textLayerDiv.className = 'textLayer';
             textLayerDiv.style.width = `${viewport.width}px`;
             textLayerDiv.style.height = `${viewport.height}px`;
+            textLayerDiv.style.transform = `scale(${1 / pixelRatio})`;
             wrapper.appendChild(textLayerDiv);
 
-            pdfContainer.appendChild(wrapper);
-
-            // 페이지 렌더링
-            await page.render({
-                canvasContext: context,
-                viewport: viewport
-            }).promise;
-
-            // 텍스트 콘텐츠 렌더링
             const textContent = await page.getTextContent();
-            textContent.items.forEach(item => {
-                const tx = PDFJS.Util.transform(
-                    PDFJS.Util.transform(viewport.transform, item.transform),
-                    [1, 0, 0, -1, 0, 0]
-                );
-
-                const style = item.style || {};
-                style.left = Math.floor(item.transform[4]) + 'px';
-                style.top = Math.floor(-item.transform[5]) + 'px';
-                style.fontSize = Math.floor(style.fontSize) + 'px';
-                style.fontFamily = style.fontFamily || 'sans-serif';
-
-                const textSpan = document.createElement('span');
-                textSpan.textContent = item.str;
-                Object.assign(textSpan.style, style);
-                textLayerDiv.appendChild(textSpan);
+            const textItems = textContent.items;
+            textItems.forEach(item => {
+                const span = document.createElement('span');
+                span.textContent = item.str;
+                span.style.left = item.transform[4] + 'px';
+                span.style.top = item.transform[5] + 'px';
+                span.style.fontSize = `${item.transform[0]}px`;
+                span.style.fontFamily = item.fontName || 'sans-serif';
+                textLayerDiv.appendChild(span);
             });
         }
 
