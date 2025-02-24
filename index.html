@@ -11,10 +11,23 @@
             box-sizing: border-box;
         }
 
+        /* 전체 스크롤바 숨기기 */
+        html, body {
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+            height: 100%;
+            background: #ffffff;
+            overflow-x: hidden;
+        }
+
+        /* Chrome, Safari용 스크롤바 숨기기 */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
         body {
             margin: 0;
             padding: 20px 0;
-            background: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
@@ -23,14 +36,14 @@
             margin: 0 auto;
             background: #ffffff;
             position: relative;
-            overflow: hidden;
-            border-radius: 4px;
+            height: calc(100vh - 40px); /* 상하 패딩 고려 */
         }
 
         .pdf-container {
             width: 100%;
-            height: 100vh;
+            height: 100%;
             position: relative;
+            overflow: hidden;
         }
 
         iframe {
@@ -39,6 +52,9 @@
             border: none;
             margin: 0;
             padding: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
         /* 오버레이로 구글 뷰어 UI 가리기 */
@@ -52,9 +68,11 @@
             z-index: 1000;
         }
 
+        /* 패딩과 간격 조정 */
         @media (max-width: 880px) {
             .container {
                 width: 95%;
+                height: calc(100vh - 20px);
             }
             
             body {
@@ -70,9 +88,37 @@
             <iframe 
                 src="https://drive.google.com/file/d/1Pvt8gpg4VOU9E9sr9Iolywn5rmbGtZVe/preview"
                 frameborder="0"
-                allowfullscreen>
+                allowfullscreen
+                scrolling="yes">
             </iframe>
         </div>
     </div>
+
+    <script>
+        // 전체 페이지에서 스크롤 이벤트 처리
+        document.addEventListener('wheel', function(e) {
+            const iframe = document.querySelector('iframe');
+            if (iframe && iframe.contentWindow) {
+                // iframe 내부의 스크롤 위치 조정
+                iframe.contentWindow.scrollBy(0, e.deltaY);
+            }
+        }, { passive: true });
+
+        // 터치 스크롤을 위한 이벤트 리스너
+        let touchStartY = 0;
+        document.addEventListener('touchstart', function(e) {
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchmove', function(e) {
+            const touchY = e.touches[0].clientY;
+            const deltaY = touchStartY - touchY;
+            const iframe = document.querySelector('iframe');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.scrollBy(0, deltaY);
+            }
+            touchStartY = touchY;
+        }, { passive: true });
+    </script>
 </body>
 </html>
