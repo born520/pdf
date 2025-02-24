@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seamless PDF Viewer</title>
+    <title>PDF.js Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -11,46 +12,169 @@
             box-sizing: border-box;
         }
 
-        html, body {
-            height: 100%;
-            overflow: auto;
+        body {
+            margin: 0;
+            background: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        #pdf-viewer {
+            width: 100%;
+            margin: 0 auto;
             background: #ffffff;
         }
 
-        .pdf-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
+        .page-container {
+            margin: 0 auto;
+            background: #ffffff;
         }
 
-        iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
-            margin: 0;
-            padding: 0;
+        canvas {
+            width: 100% !important;
+            height: auto !important;
+            margin: 0 auto;
+            display: block;
         }
 
-        /* 스크롤바 숨기기 - 선택사항 */
-        body::-webkit-scrollbar {
+        /* 로딩 인디케이터 */
+        .loading {
             display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #666;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        /* 페이지 페이드인 효과 */
+        .page-container {
+            opacity: 0;
+            transition: opacity 0.3s ease-in;
+        }
+
+        .page-container.visible {
+            opacity: 1;
+        }
+
+        /* 스크롤바 스타일링 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #ffffff;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #e0e0e0;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #d0d0d0;
         }
     </style>
 </head>
 <body>
-    <div class="pdf-container">
-        <iframe 
-            src="https://drive.google.com/file/d/1Pvt8gpg4VOU9E9sr9Iolywn5rmbGtZVe/preview"
-            frameborder="0"
-            allowfullscreen
-            allow="autoplay">
-        </iframe>
-    </div>
+    <div id="pdf-viewer"></div>
+    <div class="loading">PDF 로딩 중...</div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const pdfViewer = document.getElementById('pdf-viewer');
+        const loadingIndicator = document.querySelector('.loading');
+        let currentPage = 1;
+        let pdfDoc = null;
+        let isLoading = false;
+
+        // IntersectionObserver 설정
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, {
+            threshold: 0.1
+        });
+
+        async function renderPage(pageNumber) {
+            const page = await pdfDoc.getPage(pageNumber);
+            const viewport = page.getViewport({ scale: 2 }); // 고해상도를 위해 scale 2 사용
+
+            const container = document.createElement('div');
+            container.className = 'page-container';
+            
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            // 레티나 디스플레이 대응
+            const pixelRatio = window.devicePixelRatio || 1;
+            canvas.width = viewport.width * pixelRatio;
+            canvas.height = viewport.height * pixelRatio;
+            
+            // 캔버스 스케일 조정
+            context.scale(pixelRatio, pixelRatio);
+
+            container.appendChild(canvas);
+            pdfViewer.appendChild(container);
+
+            // 페이지 렌더링
+            await page.render({
+                canvasContext: context,
+                viewport: viewport
+            }).promise;
+
+            // IntersectionObserver에 페이지 추가
+            observer.observe(container);
+        }
+
+        async function loadPDF(url) {
+            try {
+                loadingIndicator.classList.add('active');
+                const loadingTask = pdfjsLib.getDocument(url);
+                pdfDoc = await loadingTask.promise;
+                
+                // 처음 3페이지 렌더링
+                for(let i = 1; i <= Math.min(3, pdfDoc.numPages); i++) {
+                    await renderPage(i);
+                }
+                currentPage = 4;
+                
+                loadingIndicator.classList.remove('active');
+            } catch (error) {
+                console.error('PDF 로딩 에러:', error);
+                loadingIndicator.textContent = 'PDF를 불러올 수 없습니다.';
+            }
+        }
+
+        // 스크롤 이벤트 처리
+        window.addEventListener('scroll', async () => {
+            if (isLoading || !pdfDoc || currentPage > pdfDoc.numPages) return;
+
+            const scrollPosition = window.innerHeight + window.scrollY;
+            const totalHeight = document.documentElement.scrollHeight;
+
+            if (scrollPosition >= totalHeight - 1000) {
+                isLoading = true;
+                await renderPage(currentPage);
+                currentPage++;
+                isLoading = false;
+            }
+        });
+
+        // PDF 파일 URL 설정 및 로드
+        const pdfUrl = 'https://cors-anywhere.herokuapp.com/https://drive.google.com/uc?export=download&id=1Pvt8gpg4VOU9E9sr9Iolywn5rmbGtZVe';
+        loadPDF(pdfUrl);
+    </script>
 </body>
 </html>
