@@ -6,13 +6,9 @@
     <title>장가계 장룡항공(룽에어) 요금표</title>
     
     <!-- 기본 메타 태그 -->
-    <meta name="description" content="장가계 장룡항공(룽에어) 요금표 - 출발 일정 및 요금 안내">
-    
-    <!-- 오픈그래프 메타 태그 -->
     <meta property="og:title" content="장가계 장룡항공(룽에어) 요금표">
-    <meta property="og:description" content="장가계 출발 일정 및 요금 안내">
     <meta property="og:type" content="article">
-    <meta property="og:image" content="첫 페이지 이미지 URL"> <!-- PDF 첫 페이지를 이미지로 변환하여 사용 -->
+    <meta property="og:image" content="장가계_장룡항공(룽에어).pdf">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
@@ -100,25 +96,6 @@
         const loadingDiv = document.querySelector('.loading');
         let currentScale = 1.5;
 
-        async function updateMetadata(pdfDoc) {
-            try {
-                const metadata = await pdfDoc.getMetadata();
-                if (metadata) {
-                    const info = metadata.info;
-                    const title = info.Title || '장가계 장룡항공(룽에어) 요금표';
-                    const description = info.Subject || '장가계 출발 일정 및 요금 안내';
-                    
-                    // 메타 정보 업데이트
-                    document.title = title;
-                    document.querySelector('meta[name="description"]').setAttribute('content', description);
-                    document.querySelector('meta[property="og:title"]').setAttribute('content', title);
-                    document.querySelector('meta[property="og:description"]').setAttribute('content', description);
-                }
-            } catch (error) {
-                console.log('메타데이터 추출 실패:', error);
-            }
-        }
-
         async function renderPage(pdfDoc, pageNum) {
             const page = await pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: currentScale });
@@ -147,12 +124,6 @@
                 transform: transform,
                 viewport: viewport
             }).promise;
-
-            // 첫 페이지를 og:image로 사용
-            if (pageNum === 1) {
-                const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
-                document.querySelector('meta[property="og:image"]').setAttribute('content', imageUrl);
-            }
         }
 
         async function loadPDF() {
@@ -160,9 +131,6 @@
                 const pdfUrl = 'https://raw.githubusercontent.com/born520/pdf/main/장가계_장룡항공(룽에어).pdf';  // PDF 파일 경로 변경
                 const loadingTask = pdfjsLib.getDocument(pdfUrl);
                 const pdfDoc = await loadingTask.promise;
-                
-                // 메타데이터 업데이트
-                await updateMetadata(pdfDoc);
                 
                 loadingDiv.style.display = 'none';
                 
